@@ -1,0 +1,65 @@
+name: Deploy Django App
+
+on:
+  push:
+    branches:
+      - main  # Adjust as needed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # pip install -r requirements.txt
+
+      - name: Deploy via SSH with Password
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          password: ${{ secrets.REMOTE_PASS }}
+          script: |
+            echo "Deployment started."
+            ls -al
+            # Update the server and install dependencies
+            sudo apt update -y
+            sudo apt install -y python3 python3-pip python3-venv
+            
+            # Navigate to the project directory
+            cd /root/django-app/  # Change this to your actual Django project path
+            
+            # Set up a virtual environment
+            python3 -m venv venv
+            source venv/bin/activate
+            
+            # Install required Python packages
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            
+            # Run Django migrations
+            python manage.py migrate
+            
+            # Collect static files
+            python manage.py collectstatic --noinput
+            
+            # Restart Gunicorn and reload Nginx
+            echo "Restarting Gunicorn and Nginx"
+            sudo systemctl restart gunicorn
+            sudo systemctl restart nginx
+            
+            # Check application status
+            sudo systemctl status gunicorn
+            
+            echo "Deployment complete."
+            curl -i -k https://yourdomain.com  # Replace with your actual domain or IP
